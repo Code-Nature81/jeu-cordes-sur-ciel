@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Cordes sur Ciel – Aventure interactive</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Polices -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Mapbox -->
+  <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+  <style>
+  /* ========= Couleurs Cordes‑sur‑Ciel ========= */
+  :root{
+    --cs-terra:#a94438;  /* brique */
+    --cs-gold:#d7b377;   /* pierre dorée */
+    --cs-sky:#4c7ea8;    /* bleu ciel */
+    --cs-dark:#2f2f2f;
+    --cs-light:#faf8f4;
+  }
+
+  /* ========= Base ========= */
+  *,*:before,*:after{box-sizing:border-box}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Montserrat",sans-serif;
+    background:var(--cs-light);color:var(--cs-dark);
+    line-height:1.45;-webkit-font-smoothing:antialiased;
+  }
+  h1{font-family:"Playfair Display",serif;color:var(--cs-terra);margin:0;}
+
+  /* ========= Conteneur principal ========= */
+  #app{max-width:900px;margin:auto;padding:2rem 1.2rem;}
+
+  /* ========= Mode ACCUEIL : plein écran, centré ========= */
+  body.start-mode #app{
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    min-height:100vh;padding:1.2rem;
+  }
+  body.start-mode #text{max-width:680px;text-align:center;}
+  body.start-mode #title{font-size:clamp(1.6rem,4vw,2.3rem);}
+  body.start-mode .btn{width:240px;font-size:1.05rem;}
+
+  /* ========= Texte & boutons ========= */
+  #title{font-size:1.9rem;margin-bottom:.4rem;}
+  #text{margin:.6rem 0 1rem;}
+  #choices{display:flex;flex-direction:column;gap:.6rem;}
+
+  .btn{
+    display:inline-block;background:var(--cs-terra);color:#fff;
+    padding:.85rem 1.4rem;border:none;border-radius:6px;
+    font-weight:500;cursor:pointer;transition:.2s;
+  }
+  .btn:hover{background:#8d372c;transform:translateY(-2px);}
+  .btn:active{transform:translateY(0);}
+
+  /* ========= Carte ========= */
+  #map{
+    width:100%;height:450px;border-radius:10px;
+    box-shadow:0 4px 14px rgba(0,0,0,.1);margin-top:1.6rem;
+  }
+  #map.hidden{display:none;}
+
+  /* ========= Marqueurs ========= */
+  .marker{
+    width:16px;height:16px;border-radius:50%;
+    box-shadow:0 0 0 2px #fff;
+  }
+  </style>
+</head>
+
+<body class="start-mode"><!-- start-mode = page d’accueil -->
+
+<div id="app">
+  <h1 id="title"></h1>
+  <div id="map" class="hidden"></div>
+  <div id="text"></div>
+  <div id="choices"></div>
+  
+</div>
+
+<script>
+/* ========== Clé Mapbox ========== */
+mapboxgl.accessToken='pk.eyJ1IjoiZ3ViaW5xIiwiYSI6ImNrbnlubnVwYjBsMjgyb3J4b3hqM2YwOGsifQ.KV-VZe4nIEMc7rhtHmM5BQ';
+
+/* ========== Coordonnées des lieux ========== */
+const lieux={
+  "1":[1.9587,44.0626],
+  "2":[1.9508,44.0643],"3":[1.948879,44.063968],"4":[1.9491,44.0629],
+  "5":[1.950752,44.063756],"6":[1.9502,44.0641],"7":[1.953404,44.063003],
+  "8":[1.950972,44.063485],"9":[1.9503,44.0640],"10":[1.951964,44.06354],
+  "11":[1.951522,44.063502],"12":[1.9494,44.0639],"13":[1.9501,44.0635],
+  "14":[1.9489,44.0638],"15":[1.9500,44.0633],"16":[1.9510,44.0640],
+  "17":[1.9494,44.0635],"18":[1.952887,44.06312],"19":[1.948281,44.064089],
+  "20":[1.9499,44.0637],"21":[1.950226,44.06354],"22":[1.951691,44.063224],
+  "23":[1.9477,44.0637],"24":[1.950668,44.063426],"25":[1.9510,44.0630],
+  "26":[1.9513,44.0638],"27":[1.9510,44.0638],"28":[1.948705,44.063661],
+  "29":[1.9495,44.0636],"30":[1.955153,44.06266],"31":[1.9513,44.0636],
+  "32":[1.953760,44.0630],"33":[1.9509,44.0636],"34":[1.9587,44.0626]
+};
+
+/* ========== Histoire complète ========== */
+const story={
+  start:{
+    title:"Cordes sur Ciel – Aventure interactive",
+    text:`<p>Bienvenue dans la cité médiévale de <strong>Cordes‑sur‑Ciel</strong> !<br>
+           Choisissez votre rôle, laissez‑vous guider dans les ruelles et
+           découvrez ses secrets.</p>
+           <p><small>Astuce : activez la géolocalisation pour un guidage
+           en temps réel.</small></p>`,
+    choices:[
+      {label:"Je suis Marchand →",target:"34"},
+      {label:"Je suis Soldat →",target:"14"}
+    ]
+  },
+
+  "2":{title:"Le puits",
+       text:`Au milieu de la foule, vous entendez parler d’un puits légendaire situé
+             au cœur de la ville. Cette légende n’a jamais été vérifiée malgré
+             plusieurs expéditions :<br>
+             A. 39 m B. 97 m C. 114 m.<br><br>
+             Vous arrivez au terme de l’aventure.`,
+       choices:[{label:"Terminer l’aventure",target:"16"}]},
+
+  "3":{title:"La Porte de la Jane",
+       text:`La porte de la Jane est la porte ouest qui donne directement sur l'extérieur de la cité. Le faubourg a continué à grandir mais n'est pas protégé, je comprends la quantité effrayante de gardes présents sur les Lices.
+<br><br>
+En entrant dans la cité, je trouve aisément la demeure du tanneur.<br>
+Alors que je toque à la porte, celui ci m'interpelle :<br>
+- Que veux tu ?<br>
+- Je suis marchand, je cherche le maitre tailleur qui vit ici, j'ai un marché à lui proposer !<br>
+- C'est moi, que veux tu ?<br>
+- J'aimerais t'acheter ta marchandise, la totalité ! Je vais la vendre à la grande foire d'Albi !<br>
+- Marché conclu à deux conditions, je souhaite que tu aies une escorte avec toi et que tu aies une maison dans la cité.<br>
+- Ou puis recruter une escorte ?<br>
+- Ne te fies pas aux soldats, certains sont corrompus, va directement voir les Bannerets*. Le plus influent est à la Maison du Grand Ecuyer, mais il y en a un autre qui vit dans une des tours de la Porte des Ormeaux. <br><br>
+
+Avant de partir, quel est le 3e signe du linteau qui m'a permis de trouver la maison du tailleur :<br>
+A. Une chaussure <br>
+B. Une ceinture<br>
+C. Un Sac<br><br>
+
+Où dois je aller ?`,
+       choices:[
+         {label:"Maison du Grand Écuyer",target:"17"},
+         {label:"Porte des Ormeaux",target:"28"}
+       ]},
+
+  "4":{title:"La Rue Chaude",
+       text:`Alors que vous descendez la Rue Chaude, vous comprenez immédiatement
+             l’origine de son nom : les forges et fours y dégagent une chaleur
+             intense.<br><br>Que faites‑vous ?`,
+       choices:[
+         {label:"Monter la garde sur les Lices",target:"9"},
+         {label:"Rejoindre la Porte de la Jane",target:"13"}
+       ]},
+
+  "5":{title:"Église Saint‑Michel",
+       text:`A cette heure ci, l'Eglise est déserte.<br><br>
+
+Cet édifice n'est pas commun.<br>
+D'apparence, il ressemble en tout point à une église catholique mais à ce jour, il n'y a pas de croix chrétienne, signe de l'indépendance religieuse de la cité cathare !<br><br>
+
+De même, les architectes n'ont pas respecté le plan en croix des nefs classiques.<br>
+
+Toutefois, ce n'est pas ici que je trouverai mon artisan.<br>
+
+Je vais aller faire un tour chez lui près de la Porte de la Jane.`,
+       choices:[{label:"Porte de la Jane",target:"3"}]},
+
+  "6":{title:"La Barbacane",
+       text:`Cette tour ronde est impressionnante. Un garde vous interpelle
+             et vous invite à déclarer votre identité.`,
+       choices:[
+         {label:"Réclamer la taille au Grand Veneur",target:"12"},
+         {label:"Rétablir l’ordre Rue Chaude",target:"4"},
+         {label:"Interpeller le juré Fiburce",target:"20"}
+       ]},
+
+  "7":{title:"La Porte du Planol",
+       text:`L'écriteau "Porte du Vainqueur" m'aide à comprendre rapidement que je suis au bon endroit.<br><br>
+
+Alors qu'il sort par une porte dérobée, je tombe face à face avec le maitre et l'interpelle.<br>
+
+- Eh ! maitre des artisans ?<br>
+- Doucement marchand, les rues ici ne sont pas sûres ! rien qu'aujourd'hui, 3 de nos tanneries en campagnes ont été pillées par les hommes de Simon de Monfort. Ils sont partout, soyons discrets.<br>
+Que voulez vous ?<br>
+- J'ai sur moi une somme d'argent gagnée par le passé. Je souhaite investir dans la cité pour développer mon commerce. Pouvez vous m'aider à me lancer ?<br>
+- Je dois passer chez moi à la maison du Grand Fauconnier mais nous pouvons nous voir sur la place de la Bride.<br><br>
+
+Où dois je aller ?`,
+       choices:[
+         {label:"Maison du Grand Fauconnier",target:"22"},
+         {label:"Place de la Bride",target:"10"}
+       ]},
+
+  "8":{title:"Maison Fompeyrouse",
+       text:`Sa façade "aux cent ogives" est splendide. Elle possède trois étages en excellents état.<br><br>
+
+Au rez-de-chaussée, six arcades sont ouvertes sur la rue. Elles sont vitrées avec des montants de bois et l'une d'entre elles comporte une porte de bois cloutée.<br>
+
+Le premier étage comporte des fenêtres géminées et des ouvertures minces et hautes. Le deuxième étage est éclairé par une alternance de baies géminées et de baies isolées. Leur hauteur est inhabituelle.<br>
+
+C'est décidé, ce sera ma maison !<br>
+
+Mais, ai je bien vu, quel est l'animal qui est présent sur la façade ?<br>
+A. Un sanglier<br>
+B. Un Cheval<br>
+C. Aucun<br><br>
+
+Je peux désormais aller acheter ma marchandise, je dois aller sous la Halle<br>
+`,
+       choices:[{label:"Acheter sous la Halle",target:"11"}]},
+
+  "9":{title:"Les Lices",
+       text:`Vous voilà de garde sur les remparts. La vallée s’étend à perte
+             de vue sous vos pieds, baignée par le soleil du Tarn.`,
+       choices:[{label:"Porte des Ormeaux",target:"26"}]},
+
+  "10":{title:"Place de la Bride",
+        text:`Depuis la place, la vue sur la vallée Nord-Est est imprenable.<br>br>
+
+On peut y voir les paysans qui sont encore en train de travailler dans les champs malgré l'heure avancée.<br><br>
+
+Quelques lanternes ça et là témoignent d'une activité artisanale dans les cabanes de la vallée du Cérou.<br><br>
+
+- Marchand ! ici tu peux voir les différents paysans et artisans qui t'aideront dans ton entreprise. Fais ton choix !<br>
+- Je vois des éleveurs et des tanneries, je vais me lancer dans le commerce du cuir !<br>
+- C'est ton choix marchand. Tu as de la chance, le meilleur d'entre eux vit dans la cité. A cette heure ci, tu le trouveras peut être à l'Eglise ou sur les Lices. S'i n'y était pas, vas à la Porte de la Jane, sa demeure est juste à coté.
+<br><br>
+Mais avant de partir, quel est le bâtiment "moderne" construit à proximité du pont sur le Cérou :<br>
+A. Un château d'eau <br>
+B. Un stade de sport<br>
+C. Un collège<br><br>
+
+Où dois je aller ?.`,
+        choices:[
+          {label:"Aller à l’Église",target:"5"},
+          {label:"Sur les Lices",target:"19"},
+          {label:"Porte de la Jane",target:"3"}
+        ]},
+
+  "11":{title:"La Halle",
+        text:`C'est jour de marché, la halle grouille de commerçant, de paysans et d'enfant au milieu des femmes qui font leurs achats.<br><br>
+
+Je trouve mon maitre artisan avec qui nous avions un accord.<br>
+
+Je l'informe que j'ai désormais une escorte et une maison.<br>
+
+Il accepte de me vendre sa marchandise, je vais devenir riche !<br>
+
+
+
+
+
+Merci d'avoir vécu avec nous cette aventure.<br>`,
+        choices:[{label:"Fin de l’aventure",target:"16"}]},
+
+  "12":{title:"Le Grand Veneur",
+        text:`La maison est imposante : sculptures de chasse et trophées
+              ornent la façade.`,
+        choices:[{label:"Filer Rue Chaude",target:"4"}]},
+
+  "13":{title:"Porte de la Jane (poste de garde)",
+        text:`Poste difficile à défendre, constamment sous la menace des
+              frondeurs ennemis. Vous décidez finalement d’abandonner votre
+              position.`,
+        choices:[{label:"Rejoindre les Lices",target:"9"}]},
+
+  "14":{title:"An de grâce 1226 – Soldat",
+        text:`Vous rêvez de devenir un soldat d’élite. Votre première étape
+              sera l’Hôpital Saint‑Jacques pour vous enrôler.`,
+        choices:[{label:"Hôpital Saint‑Jacques",target:"23"}]},
+
+  "15":{title:"Maison Gaugiran",
+        text:`Dans la cour intérieure, les escaliers à vis témoignent d’un
+              savoir‑faire exceptionnel.`,
+        choices:[{label:"Maison Fompeyrouse",target:"8"}]},
+
+  "16":{title:"Félicitations !",
+        text:`Vous êtes arrivé(es) au terme de cette aventure à travers la cité de Cordes.<br><br>
+
+Désormais, votre fiche réponse est complétée.
+Nous vous invitons à nous remettre votre bulletin réponse complété à la boutique.......... où vous trouverez une urne à votre disposition.<br><br>
+
+Nous espérons que vous avez pris le temps de profiter de la cité et de son histoire maintenant que vous en connaissez certains secrets.<br>
+
+Nous vous invitons à garder pour vous les bonnes réponses pour ne pas gâcher la surprise des prochains visiteurs.<br>
+
+Vous serez informés des résultats du tirage au sort qui aura lieu en fin de saison.<br>
+
+Merci d'avoir joué le jeu, n'hésitez pas à laisser vos impressions et avis. Ils sont primordiaux pour nous afin d'améliorer sans cesse l'expérience de jeu.<br><br>
+
+Merci et à bientôt dans notre beau village !`,
+        choices:[{label:"Rejouer",target:"start"}]},
+
+  "17":{title:"Maison du Grand Écuyer",
+        text:`a Maison est sculptée, ornementée, magnifique et signe de puissance militaire.<br><br>
+
+J'ai peur d'entrer mais je me convaincs que ma puissance à moi est financière.<br>
+
+Après tractation, j'ai réussi à négocier une escorte pour m'accompagner jusqu'à Albi, je peux désormais me concentrer sur l'achat d'un toit dans la cité pour m'héberger moi puis ma future famille.<br>
+
+J'ai entendu dire que plusieurs maisons étaient à vendre dans la cité, certains habitants fuient avant d'être pillés par les hommes de l'Inquisition.<br>
+Les bruits disent que nous sommes plus en sécurité dans la cité plutôt qu'en dehors.<br>`,
+        choices:[
+          {label:"Maison Gaugiran",target:"21"},
+          {label:"Maison Fompeyrouse",target:"8"},
+          {label:"Grand Veneur",target:"24"}
+        ]},
+
+  "18":{title:"Portail Peint",
+        text:`En cette fin de journée, j'arriver à discerner une vierge peinte sur le portail face à moi.<br><br>
+
+La porte est verrouillée et je n'arriverai pas à pénétrer dans la partie supérieure de la ville.<br>
+
+Je dois rebrousser chemin et revenir à la Porte du Planol.<br>`,
+        choices:[{label:"Porte du Planol",target:"7"}]},
+
+  "19":{title:"Les Lices (marchand)",
+        text:`Il semble que je sois arrivé sur un poste de garde.<br><br>
+
+Ces derniers me dévisagent et je commence à douter de leur intégrité.<br>
+Les Inquisiteurs sont partout, les voleurs également !<br>
+
+Je préfère faire demi tour et aller directement chez l'artisan, à proximité de la Porte de la Jane<br>`,
+        choices:[{label:"Chez l’artisan (Porte Jane)",target:"3"}]},
+
+  "20":{title:"Maison Ladevèze",
+        text:`Ses nombreuses arcades bordent la rue. Malheureusement, le juré
+              Fiburce est absent.`,
+        choices:[{label:"Rue Chaude",target:"4"}]},
+
+  "21":{title:"Maison Gaugiran (choix marchand)",
+        text:`Comme toute maison gothique, elle possède trois étages.<br>
+
+Au rez-de-chaussée, elle est ouverte sur quatre arcades en ogive. Au premier étage, huit baies géminées sont disposées en deux groupes de deux.<br>
+
+Le second étage est la copie du premier, les ouvertures étant alignées en hauteur.<br>
+
+La cour intérieure est remarquable par son escalier en bois qui relie la cour aux galeries des étages.<br>
+
+Cette maison ne me semble pas assez sécurisée, je vais à la Maison Fompeyrouse.<br>`,
+        choices:[{label:"Maison Fompeyrouse",target:"8"}]},
+
+  "22":{title:"Maison du Grand Fauconnier",
+        text:`Je reste à distance, le maître des artisans ne sait pas que je le suis.<br><br>
+
+Alors qu'il rentre chez lui, je le perds de vue mais je peux tout de même prendre le temps de contempler la façade de cette imposante bâtisse.<br><br>
+
+Je n'ai plus qu'à me rendre sur la place de la Bride.`,
+        choices:[{label:"Place de la Bride",target:"10"}]},
+
+  "23":{title:"Hôpital Saint‑Jacques",
+        text:`Situé à l’entrée de la ville, l’hôpital accueille pèlerins et
+              soldats blessés.`,
+        choices:[
+          {label:"Passer par la Barbacane",target:"6"},
+          {label:"Portail Peint",target:"18"},
+          {label:"Porte du Planol",target:"33"}
+        ]},
+
+  "24":{title:"Maison du Grand Veneur",
+        text:`C'est semble t'il une maison de chasseur. <br><br>
+
+Contrairement à d'autres maisons gothiques, elle possède quatre et non trois étages. Au rez-de-chaussée, elle comporte quatre arcades en ogive. <br>
+
+Les fenêtres des premier et deuxième étages sont des baies géminées sous ogive réunies par deux. Les ouverture des deux étages sont alignées. <br>
+
+Au denier étage, les combles sont éclairés à droite et à gauche par deux fenêtres doubles en ogive encadrant deux petites ouvertures rectangulaires.<br>
+
+De nombreuses sculptures ornent la façade. <br>
+
+Cette maison est trop imposante pour moi. <br>`,
+        choices:[{label:"Maison Fompeyrouse",target:"8"}]},
+
+  "25":{title:"An de grâce 1226 – (duplicata marchand)",
+        text:`Vous devez pénétrer dans la cité sans être attaqué ; la Porte
+              de l’Horloge semble l’accès le plus sûr.`,
+        choices:[{label:"Porte de l’Horloge",target:"30"}]},
+
+  "26":{title:"Porte des Ormeaux (soldat)",
+        text:`Poste militaire privilégié. C’est ici qu’en 1233 les inquisiteurs
+              firent leur entrée.`,
+        choices:[
+          {label:"Maison Fompeyrouse",target:"29"},
+          {label:"Église Saint‑Michel",target:"31"},
+          {label:"Maison Gaugiran",target:"15"}
+        ]},
+
+  "27":{title:"An de grâce 1226 – Marchand",
+        text:`Vous souhaitez profiter du commerce florissant. Passer la Porte
+              de l’Horloge sera votre priorité.`,
+        choices:[{label:"Porte de l’Horloge",target:"30"}]},
+
+  "28":{title:"Porte des Ormeaux (marchand)",
+        text:`La porte des Ormeaux est l'entrée Ouest de la ville. C'est un point de passage obligatoire pour quiconque souhaite pénétrer dans la cité. C'est également un poste militaire privilégié.<br><br>
+
+Malheureusement, en frappant à la porte dérobée de la tour attenante, personne ne répond.<br>
+
+Je vais donc me rendre à la Maison du Grand Ecuyer pour embaucher mon escorte.<br>`,
+        choices:[{label:"Maison du Grand Écuyer",target:"17"}]},
+
+  "29":{title:"Maison Fompeyrouse (soldat, fausse piste)",
+        text:`Fausse alerte : rien à signaler. Mieux vaut rejoindre la Maison
+              Gaugiran.`,
+        choices:[{label:"Maison Gaugiran",target:"15"}]},
+
+  "30":{title:"Porte de l’Horloge",
+        text:`Me voila face à la première porte de la cité.
+
+L'édifice est solide, massif même. Coiffée de son horloge, la porte impose et à de quoi retenir les envahisseur ou brigands alentours.
+
+Je m'approche des gardes<br>
+- Halte ! qui va là ?<br>
+- Je suis marchand, et je souhaite venir m'installer dans la cité ! Pouvez vous m'aider ?<br>
+- Vous devez trouver le maître des artisans. Il vous aidera à rencontrer des producteur pour faire vos affaires.<br>
+- Je vous remercie, savez vous où il vit ?<br>
+- Il navigue entre la Barbacane, la Porte du Planol et la Porte du Portail Peint. En général, à cette heure ci, il est chez le Vainqueur.<br>
+Je rentre dans la cité tout en remerciant les gardes pour leur accueil.<br>
+
+Où dois je aller ?.`,
+        choices:[
+          {label:"Barbacane",target:"32"},
+          {label:"Porte du Planol",target:"7"},
+          {label:"Portail Peint",target:"18"}
+        ]},
+
+  "31":{title:"Église Saint‑Michel (soldat)",
+        text:`Toujours silencieuse à cette heure, mais un souffle glacé vous
+              traverse l’échine.`,
+        choices:[{label:"Maison Gaugiran",target:"15"}]},
+
+  "32":{title:"Barbacane (marchand)",
+        text:`Cette tour ronde est énorme !<br>
+
+Quelque peu effrayante même. A coup sûr un bon poste de garde.<br>
+
+Alors que j'observe la tour, je suis interpelé.<br>
+- Halte ! qui êtes vous ?<br>
+- Je suis marchand, je recherche le maître des artisans, savez vous où je peux le trouver ?<br>
+- Il doit passer ici faire le compte rendu sur les vols de la journée. Il doit être chez le Vainqueur. Soyez prudent, les rue ne sont pas si sûres tant que vous n'êtes pas dans la première enceinte..`,
+        choices:[{label:"Porte du Planol",target:"7"}]},
+
+  "33":{title:"Porte du Planol (soldat)",
+        text:`Une pensée pour le « Vainqueur » inscrit sur la porte ; mieux
+              vaut redescendre.`,
+        choices:[{label:"Retour Barbacane",target:"6"}]},
+
+         "34":{title:"Départ (Marchand)",
+        text:`An de grâce 1226, 
+
+La cité de Cordes se dresse fièrement devant moi.
+
+On entend dire ça et là dans les tavernes et sur les places des marchés alentours que la cité est riche, qu'elle se développe et que le commerce y est florissant.
+
+Je suis un marchand et moi aussi je veux profiter de l'embellie pour faire fortune et vivre confortablement avec ma famille. 
+
+Je vais devenir un bourgeois et les titres accordés aux cordais par Raymond VII vont m'y aider. 
+
+Toutefois, je dois arriver à pénétrer dans la cité sans me faire attaquer par les voleurs alentours...
+
+Aller à la porte de l'horloge `,
+        choices:[{label:"Porte de l'horloge",target:"30"}]},
+};
+
+
+/* ========== Variables ========= */
+let map=null, markers={};
+const mapDiv=document.getElementById('map');
+
+/* ========== Fonctions ========= */
+function createMap(center){
+  map=new mapboxgl.Map({
+    container:'map',
+    style:'mapbox://styles/mapbox/streets-v12',
+    center:center,zoom:17
+  });
+  map.addControl(new mapboxgl.GeolocateControl({
+    positionOptions:{enableHighAccuracy:true},trackUserLocation:true,showUserHeading:true
+  }));
+  for(const id in lieux){
+    const el=document.createElement('div');
+    el.className='marker'; el.style.backgroundColor='#276ef1';
+    markers[id]=new mapboxgl.Marker(el).setLngLat(lieux[id]).addTo(map);
+  }
+}
+function updateMarkers(active){
+  for(const id in markers){
+    markers[id].getElement().style.backgroundColor=(id===active)?'#e32636':'#276ef1';
+  }
+}
+function showMap(){mapDiv.classList.remove('hidden');}
+function hideMap(){mapDiv.classList.add('hidden');}
+function render(id){
+    const page=story[id]; if(!page) return;
+
+    /* Texte et boutons */
+    document.getElementById('title').innerText=page.title;
+    document.getElementById('text').innerHTML=page.text;
+    document.getElementById('choices').innerHTML=
+      page.choices.map(c=>`<button class="btn" onclick="render('${c.target}')">${c.label}</button>`).join('');
+
+    /* Bascule accueil ↔ jeu */
+    const accueil=(id==='start'), fin=(id==='16');
+    document.body.classList.toggle('start-mode',accueil);
+    if(accueil||fin){hideMap();}
+    else{
+      showMap();
+      if(!map) createMap(lieux[id]);
+      map.flyTo({center:lieux[id],zoom:17});
+      updateMarkers(id);
+    }
+}
+
+/* ========== Lancement ========== */
+render('start');
+</script>
+</body>
+</html>

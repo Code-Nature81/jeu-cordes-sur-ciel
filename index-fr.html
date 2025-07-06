@@ -516,6 +516,8 @@ function render(id){
       map.flyTo({center:lieux[id],zoom:17});
       updateMarkers(id);
     }
+
+    window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 /* ========== Lancement ========== */

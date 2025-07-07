@@ -77,6 +77,18 @@
 }
 .virtual-link:hover{ text-decoration:underline; }
 
+.footer-legal {
+      position: fixed;
+      
+      bottom: 0;
+      width: 100%;
+      background-color: #4e3627;
+      text-align: center;
+      font-size: 0.6rem;
+      color: white;
+      padding: 0.1rem;
+      z-index: 5;
+    }
 
 
   </style>
@@ -88,9 +100,18 @@
   <h1 id="title"></h1>
   <div id="map" class="hidden"></div>
   <div id="text"></div>
-  <div id="choices"></div>
+  <div id="choices"></div><br><br><br>
   
 </div>
+
+ <!-- FOOTER LÉGAL -->
+  <div class="footer-legal">
+    <p data-fr="Code Nature - Tous droits réservés ©" data-en="Code Nature - All rights reserved ©">
+      <a href="https://www.codenature.fr/" style="text-decoration: none; color:#e7cab9;">
+        <u>Code Nature</u>-2025- Tous droits réservés ©
+      </a>
+    </p>
+  </div>
 
 <script>
 /* ========== Clé Mapbox ========== */

@@ -507,6 +507,16 @@ Aller à la porte de l'horloge `,
 let map=null, markers={};
 const mapDiv=document.getElementById('map');
 
+/* === 1. Photos :  remplacer les URL par vos propres fichiers === */
+const photos = {
+  "30":  "img/porte-horloge.jpg",                 // porte de l'horloge
+  "10": "img/place-bride.jpg",            // Place de la Bride
+  "17": "img/grand-ecuyer.jpg",           // Maison du Grand Écuyer
+  "22": "img/grand-fauconnier.jpg",
+  "30": "img/porte-horloge.jpg",
+  // … ajoutez les autres lieux si vous disposez de photos …
+};
+
 /* ========== Fonctions ========= */
 function createMap(center){
   map=new mapboxgl.Map({
@@ -517,11 +527,29 @@ function createMap(center){
   map.addControl(new mapboxgl.GeolocateControl({
     positionOptions:{enableHighAccuracy:true},trackUserLocation:true,showUserHeading:true
   }));
-  for(const id in lieux){
-    const el=document.createElement('div');
-    el.className='marker'; el.style.backgroundColor='#276ef1';
-    markers[id]=new mapboxgl.Marker(el).setLngLat(lieux[id]).addTo(map);
+  for (const id in lieux) {
+  /* — Marker — */
+  const el = document.createElement('div');
+  el.className = 'marker';
+  el.style.backgroundColor = '#276ef1';       // bleu par défaut
+
+  /* — Popup (s’il existe une photo) — */
+  let popup = null;
+  if (photos[id]) {
+    popup = new mapboxgl.Popup({ offset: 25 })
+              .setHTML(`<img src="${photos[id]}"
+                               alt="photo ${id}"
+                               style="max-width:220px;border-radius:6px">`);
   }
+
+  /* — Ajout sur la carte — */
+  const marker = new mapboxgl.Marker(el)
+        .setLngLat(lieux[id]);
+
+  if (popup) marker.setPopup(popup);          // clic = ouvre la photo
+  markers[id] = marker.addTo(map);
+}
+
 }
 function updateMarkers(active){
   for(const id in markers){
